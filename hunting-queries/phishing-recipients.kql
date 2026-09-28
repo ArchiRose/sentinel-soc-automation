@@ -1,0 +1,18 @@
+// Phishing triage: who else received the reported message, and which links did it carry?  (T1566)
+// Paste the sender and subject from the reported email. Used in step 4 of design SOC-03.
+let reportedSender  = "invoice@supp1ier-payments.com";
+let reportedSubject = "Overdue invoice - action required";
+let lookback = 7d;
+EmailEvents
+| where TimeGenerated > ago(lookback)
+| where SenderFromAddress =~ reportedSender or Subject == reportedSubject
+| join kind=leftouter (
+    EmailUrlInfo
+    | where TimeGenerated > ago(lookback)
+    | project NetworkMessageId, Url
+  ) on NetworkMessageId
+| summarize Recipients = make_set(RecipientEmailAddress, 500),
+            Urls = make_set(Url, 50),
+            Delivered = dcountif(RecipientEmailAddress, DeliveryAction == "Delivered"),
+            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)
+          by SenderFromAddress, Subject

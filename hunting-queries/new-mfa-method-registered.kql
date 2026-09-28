@@ -1,0 +1,12 @@
+// New MFA method registered: attackers who steal a session often add their own method to keep access.
+// (T1098.005 Device Registration; step 4 of attack chain ATK-01 in the security designs.)
+// Review each hit: was it the user, on a known device, from an expected location?
+AuditLogs
+| where TimeGenerated > ago(1d)
+| where OperationName in ("User registered security info", "User registered all required security info",
+                          "Admin registered security info")
+| extend Actor   = tostring(InitiatedBy.user.userPrincipalName),
+         ActorIP = tostring(InitiatedBy.user.ipAddress),
+         Target  = tostring(TargetResources[0].userPrincipalName)
+| project TimeGenerated, OperationName, Actor, ActorIP, Target, Result, ResultReason
+| order by TimeGenerated desc

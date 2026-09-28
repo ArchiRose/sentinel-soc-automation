@@ -1,0 +1,11 @@
+// Shift handover: every open incident, who owns it and how long it has been open.  (design SOC-06)
+// SecurityIncident keeps one row per update, so take the latest row for each incident first.
+SecurityIncident
+| where TimeGenerated > ago(14d)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
+| where Status in ("New", "Active")
+| extend AgeHours = datetime_diff("hour", now(), CreatedTime),
+         Owner = coalesce(tostring(Owner.assignedTo), "Unassigned"),
+         SevRank = case(Severity == "High", 1, Severity == "Medium", 2, Severity == "Low", 3, 4)
+| project IncidentNumber, Title, Severity, Owner, AgeHours, SevRank
+| order by SevRank asc, AgeHours desc
