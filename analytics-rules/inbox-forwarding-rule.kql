@@ -1,0 +1,11 @@
+// New or changed inbox rule that forwards or redirects mail  (T1114.003, T1564.008)
+OfficeActivity
+| where TimeGenerated > ago(1h)
+| where OfficeWorkload == "Exchange"
+| where Operation in ("New-InboxRule", "Set-InboxRule", "UpdateInboxRules")
+| where Parameters has_any ("ForwardTo", "ForwardAsAttachmentTo", "RedirectTo")
+| extend ClientIPAddress = case(
+    ClientIP startswith "[", extract(@"^\[([^\]]+)\]", 1, ClientIP),   // [IPv6]:port
+    countof(ClientIP, ":") == 1, tostring(split(ClientIP, ":")[0]),     // IPv4:port
+    ClientIP)                                                           // bare address
+| project TimeGenerated, UserId, ClientIPAddress, Operation, Parameters

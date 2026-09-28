@@ -1,0 +1,55 @@
+id: 189f3855-58e4-5188-b2bf-d9b6456e04d7
+name: Failed sign-ins followed by a success from the same IP
+description: Ten or more failed Entra ID sign-ins for one account from one IP address, followed by a successful sign-in from
+  that IP within 30 minutes. A password-guessing run that worked.
+severity: High
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+queryFrequency: 1h
+queryPeriod: 2h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- CredentialAccess
+- InitialAccess
+relevantTechniques:
+- T1110
+- T1078
+query: |
+  // Failed sign-ins followed by a success from the same IP  (T1110 -> T1078)
+  let lookback = 2h;
+  let failureThreshold = 10;
+  let successWindow = 30m;
+  let failures = SigninLogs
+      | where TimeGenerated > ago(lookback)
+      | where ResultType != "0"
+      | summarize FailedCount = count(), FirstFail = min(TimeGenerated), LastFail = max(TimeGenerated)
+          by UserPrincipalName, IPAddress
+      | where FailedCount >= failureThreshold;
+  SigninLogs
+  | where TimeGenerated > ago(lookback)
+  | where ResultType == "0"
+  | join kind=inner failures on UserPrincipalName, IPAddress
+  | where TimeGenerated between (LastFail .. LastFail + successWindow)
+  | summarize SuccessTime = min(TimeGenerated), Apps = make_set(AppDisplayName, 10)
+      by UserPrincipalName, IPAddress, FailedCount, FirstFail, LastFail, Location
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: IPAddress
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: PT5H
+    matchingMethod: AllEntities
+version: 1.0.0
+kind: Scheduled

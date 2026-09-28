@@ -1,0 +1,45 @@
+id: 8777ca08-0b50-52a8-82ef-388261b5e2d7
+name: Shadow copies or backup catalogue deleted
+description: Commands that delete Volume Shadow Copies, the Windows backup catalogue or boot recovery. Ransomware runs these
+  just before encrypting, so this alert needs an immediate response.
+severity: High
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceProcessEvents
+queryFrequency: 5m
+queryPeriod: 10m
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Impact
+relevantTechniques:
+- T1490
+query: |
+  // Shadow copies or backups being deleted: a common last step before encryption  (T1490)
+  DeviceProcessEvents
+  | where TimeGenerated > ago(10m)
+  | where FileName in~ ("vssadmin.exe", "wmic.exe", "wbadmin.exe", "bcdedit.exe")
+  | where ProcessCommandLine contains "delete shadows"
+       or ProcessCommandLine contains "shadowcopy delete"
+       or ProcessCommandLine contains "delete catalog"
+       or ProcessCommandLine contains "recoveryenabled no"
+  | project TimeGenerated, DeviceName, AccountName, ProcessCommandLine
+entityMappings:
+- entityType: Host
+  fieldMappings:
+  - identifier: HostName
+    columnName: DeviceName
+- entityType: Account
+  fieldMappings:
+  - identifier: Name
+    columnName: AccountName
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: PT5H
+    matchingMethod: AllEntities
+version: 1.0.0
+kind: Scheduled

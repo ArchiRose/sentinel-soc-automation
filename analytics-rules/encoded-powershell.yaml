@@ -1,0 +1,42 @@
+id: 56d98732-ac30-502d-92a8-377cbe881eb4
+name: PowerShell started with an encoded command
+description: PowerShell launched with -EncodedCommand or a Base64 decode on the command line. Common in malware and hands-on-keyboard
+  attacks because it hides what the script does.
+severity: Medium
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceProcessEvents
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Execution
+relevantTechniques:
+- T1059
+query: |
+  // PowerShell launched with an encoded command  (T1059.001)
+  DeviceProcessEvents
+  | where TimeGenerated > ago(1h)
+  | where FileName in~ ("powershell.exe", "pwsh.exe")
+  | where ProcessCommandLine contains "-enc" or ProcessCommandLine contains "FromBase64String"
+  | project TimeGenerated, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName
+entityMappings:
+- entityType: Host
+  fieldMappings:
+  - identifier: HostName
+    columnName: DeviceName
+- entityType: Account
+  fieldMappings:
+  - identifier: Name
+    columnName: AccountName
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: PT5H
+    matchingMethod: AllEntities
+version: 1.0.0
+kind: Scheduled

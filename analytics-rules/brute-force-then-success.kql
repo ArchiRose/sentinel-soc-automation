@@ -1,0 +1,17 @@
+// Failed sign-ins followed by a success from the same IP  (T1110 -> T1078)
+let lookback = 2h;
+let failureThreshold = 10;
+let successWindow = 30m;
+let failures = SigninLogs
+    | where TimeGenerated > ago(lookback)
+    | where ResultType != "0"
+    | summarize FailedCount = count(), FirstFail = min(TimeGenerated), LastFail = max(TimeGenerated)
+        by UserPrincipalName, IPAddress
+    | where FailedCount >= failureThreshold;
+SigninLogs
+| where TimeGenerated > ago(lookback)
+| where ResultType == "0"
+| join kind=inner failures on UserPrincipalName, IPAddress
+| where TimeGenerated between (LastFail .. LastFail + successWindow)
+| summarize SuccessTime = min(TimeGenerated), Apps = make_set(AppDisplayName, 10)
+    by UserPrincipalName, IPAddress, FailedCount, FirstFail, LastFail, Location

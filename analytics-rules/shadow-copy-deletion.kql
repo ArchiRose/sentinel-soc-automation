@@ -1,0 +1,9 @@
+// Shadow copies or backups being deleted: a common last step before encryption  (T1490)
+DeviceProcessEvents
+| where TimeGenerated > ago(10m)
+| where FileName in~ ("vssadmin.exe", "wmic.exe", "wbadmin.exe", "bcdedit.exe")
+| where ProcessCommandLine contains "delete shadows"
+     or ProcessCommandLine contains "shadowcopy delete"
+     or ProcessCommandLine contains "delete catalog"
+     or ProcessCommandLine contains "recoveryenabled no"
+| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine
